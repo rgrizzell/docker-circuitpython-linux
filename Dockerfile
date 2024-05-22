@@ -1,16 +1,23 @@
-FROM debian:10-slim
-ARG VERSION=6.2.0
+FROM debian:12-slim as build
+ARG VERSION=9.0.5
 
-RUN apt update
-RUN DEBIAN_FRONTEND=noninteractive apt install -y build-essential pkg-config libffi-dev wget git gettext python3
-RUN git clone https://github.com/adafruit/circuitpython.git
+# Install system requirements
+RUN apt update \
+ && apt install -y build-essential cmake git git-lfs gettext libffi-dev pkg-config python3 python3-pip python3-venv uncrustify
+# Clone the CircuitPython project
+RUN git clone -b $VERSION https://github.com/adafruit/circuitpython.git
+# Setup build dependencies
 WORKDIR /circuitpython
-RUN git checkout $VERSION
-RUN git submodule sync --quiet --recursive
-RUN git submodule update --init
-RUN make -C mpy-cross
-RUN cd ports/unix && make axtls && make micropython && make install
-RUN apt-get purge --auto-remove -y build-essential pkg-config libffi-dev wget git gettext python3
-RUN rm -rf /circuitpython
-WORKDIR /
+RUN python3 -m venv .venv
+ENV PATH="/circuitpython/.venv/bin:$PATH"
+RUN python3 -m pip install --upgrade -r requirements-dev.txt \
+ && python tools/ci_fetch_deps.py tests
+# Build the binaires
+RUN make -C mpy-cross \
+ && make -C ports/unix
+
+# Create final runtime container
+FROM debian:12-slim
+COPY --from=build /circuitpython/mpy-cross/build/mpy-cross /usr/local/bin/mpy-cross
+COPY --from=build /circuitpython/ports/unix/build-standard/micropython /usr/local/bin/micropython
 CMD ["/usr/local/bin/micropython"]
