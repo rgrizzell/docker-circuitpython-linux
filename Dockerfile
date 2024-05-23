@@ -20,4 +20,9 @@ RUN make -C mpy-cross \
 FROM debian:12-slim
 COPY --from=build /circuitpython/mpy-cross/build/mpy-cross /usr/local/bin/mpy-cross
 COPY --from=build /circuitpython/ports/unix/build-standard/micropython /usr/local/bin/micropython
-CMD ["/usr/local/bin/micropython"]
+RUN useradd -Md /circuitpy circuitpy \
+ && mkdir /circuitpy \
+ && chown circuitpy:circuitpy /circuitpy
+USER circuitpy
+WORKDIR /circuitpy
+ENTRYPOINT ["/usr/local/bin/micropython"]
