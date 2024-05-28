@@ -1,5 +1,7 @@
 FROM debian:12-slim as build
 ARG VERSION=9.0.5
+ARG VARIANT=standard
+ARG MICROPYPATH=/ciruitpy/lib
 
 # Install system requirements
 RUN apt update \
@@ -14,15 +16,16 @@ RUN python3 -m pip install --upgrade -r requirements-dev.txt \
  && python tools/ci_fetch_deps.py tests
 # Build the binaires
 RUN make -C mpy-cross \
- && make -C ports/unix
+ && VARIANT=$VARIANT BUILD=build make -C ports/unix
 
 # Create final runtime container
 FROM debian:12-slim
 COPY --from=build /circuitpython/mpy-cross/build/mpy-cross /usr/local/bin/mpy-cross
-COPY --from=build /circuitpython/ports/unix/build-standard/micropython /usr/local/bin/micropython
+COPY --from=build /circuitpython/ports/unix/build/micropython /usr/local/bin/micropython
 RUN useradd -Md /circuitpy circuitpy \
  && mkdir /circuitpy \
  && chown circuitpy:circuitpy /circuitpy
 USER circuitpy
 WORKDIR /circuitpy
+ENV MICROPYPATH=$MICROPYPATH
 ENTRYPOINT ["/usr/local/bin/micropython"]
