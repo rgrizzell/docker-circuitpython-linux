@@ -1,5 +1,5 @@
 FROM debian:12-slim as build
-ARG VERSION=9.1.4
+ARG VERSION=9.2.0
 ARG VARIANT=container
 ARG MICROPYPATH=/ciruitpy/lib
 
