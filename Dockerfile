@@ -1,7 +1,6 @@
-FROM debian:12-slim as build
+FROM debian:12-slim AS build
 ARG VERSION=9.2.1
 ARG VARIANT=container
-ARG MICROPYPATH=/ciruitpy/lib
 
 # Install system requirements
 RUN apt update \
@@ -20,16 +19,18 @@ COPY variants/ /circuitpython/ports/unix/variants/
 RUN make -C mpy-cross \
  && VARIANT=$VARIANT BUILD=build make -C ports/unix
 
-# Create final runtime container
-FROM debian:12-slim
+# Create a base image primarily for CI/CD pipelines runners
+FROM debian:12-slim AS base
 COPY --from=build /circuitpython/mpy-cross/build/mpy-cross /usr/local/bin/mpy-cross
 COPY --from=build /circuitpython/ports/unix/build/micropython /usr/local/bin/micropython
-# Setup non-root runtime user
+ENTRYPOINT ["/usr/local/bin/micropython"]
+
+# Set up non-root runtime user for everyone else
+FROM base AS runtime
 RUN useradd -Md /circuitpy circuitpy \
  && mkdir /circuitpy \
  && chown circuitpy:circuitpy /circuitpy
 USER circuitpy
 WORKDIR /circuitpy
 # Load libraries from the working directory
-ENV MICROPYPATH=$MICROPYPATH
-ENTRYPOINT ["/usr/local/bin/micropython"]
+ENV MICROPYPATH=/ciruitpy/lib
